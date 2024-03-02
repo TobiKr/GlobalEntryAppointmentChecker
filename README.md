@@ -1,6 +1,8 @@
 # GlobalEntryAppointmentChecker
 This little Logic App project will send a list of free Global Entry appointments via Exchange Online as soon as an appointment is available.
 [![Deploy to Azure](https://aka.ms/deploytoazurebutton)](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FTobiKr%2FGlobalEntryAppointmentChecker%2Fmain%2Ftemplate.json)
+[![Deploy to Azure](https://aka.ms/deploytoazurebutton)]
+(https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FTobiKr%2FGlobalEntryAppointmentChecker%2Fmain%2Ftemplate.json)
 
 
 #### Deployment 
