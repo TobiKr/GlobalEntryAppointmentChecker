@@ -1,0 +1,331 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_la_globalentrychecker_name": {
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_la_globalentrychecker_name')]",
+            "location": "westeurope",
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "Recurrence": {
+                            "recurrence": {
+                                "frequency": "Minute",
+                                "interval": 20
+                            },
+                            "evaluatedRecurrence": {
+                                "frequency": "Minute",
+                                "interval": 20
+                            },
+                            "type": "Recurrence"
+                        }
+                    },
+                    "actions": {
+                        "For_each_locationID": {
+                            "foreach": "@variables('arr_globalEntryLocations')",
+                            "actions": {
+                                "Query_TTPScheduler_API": {
+                                    "runAfter": {
+                                        "Compose_locationName": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http",
+                                    "inputs": {
+                                        "uri": "https://ttp.cbp.dhs.gov/schedulerapi/locations/@{items('For_each_locationID')}/slots",
+                                        "method": "GET",
+                                        "queries": {
+                                            "startTimestamp": "@{variables('str_startDate')}",
+                                            "endTimestamp": "@{variables('str_endDate')}"
+                                        }
+                                    },
+                                    "runtimeConfiguration": {
+                                        "contentTransfer": {
+                                            "transferMode": "Chunked"
+                                        }
+                                    }
+                                },
+                                "Parse_TTPScheduler_API_Response": {
+                                    "runAfter": {
+                                        "Query_TTPScheduler_API": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ParseJson",
+                                    "inputs": {
+                                        "content": "@body('Query_TTPScheduler_API')",
+                                        "schema": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "active": {
+                                                        "type": "integer"
+                                                    },
+                                                    "total": {
+                                                        "type": "integer"
+                                                    },
+                                                    "pending": {
+                                                        "type": "integer"
+                                                    },
+                                                    "conflicts": {
+                                                        "type": "integer"
+                                                    },
+                                                    "duration": {
+                                                        "type": "integer"
+                                                    },
+                                                    "timestamp": {
+                                                        "type": "string"
+                                                    },
+                                                    "remote": {
+                                                        "type": "boolean"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "active",
+                                                    "total",
+                                                    "pending",
+                                                    "conflicts",
+                                                    "duration",
+                                                    "timestamp",
+                                                    "remote"
+                                                ]
+                                            }
+                                        }
+                                    }
+                                },
+                                "Select_TTPScheduler_API_Columns": {
+                                    "runAfter": {
+                                        "Filter_TTPScheduler_API_Response": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Select",
+                                    "inputs": {
+                                        "from": "@body('Filter_TTPScheduler_API_Response')",
+                                        "select": {
+                                            "locationID": "@{items('For_each_locationID')}",
+                                            "locationName": "@{outputs('Compose_locationName')}",
+                                            "active": "@{item()['active']}",
+                                            "total": "@{item()['total']}",
+                                            "pending": "@{item()['pending']}",
+                                            "conflicts": "@{item()['conflicts']}",
+                                            "timestamp": "@{item()['timestamp']}"
+                                        }
+                                    }
+                                },
+                                "Set_variable_arr_freeAppointments": {
+                                    "runAfter": {
+                                        "Union_arr_freeAppointments": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "SetVariable",
+                                    "inputs": {
+                                        "name": "arr_freeAppointments",
+                                        "value": "@outputs('Union_arr_freeAppointments')"
+                                    }
+                                },
+                                "Union_arr_freeAppointments": {
+                                    "runAfter": {
+                                        "Select_TTPScheduler_API_Columns": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose",
+                                    "inputs": "@union(body('Select_TTPScheduler_API_Columns'),variables('arr_freeAppointments'))"
+                                },
+                                "Filter_TTPScheduler_API_Response": {
+                                    "runAfter": {
+                                        "Parse_TTPScheduler_API_Response": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@body('Parse_TTPScheduler_API_Response')",
+                                        "where": "@greater(item()['active'],0)"
+                                    }
+                                },
+                                "Compose_locationName": {
+                                    "type": "Compose",
+                                    "inputs": "@if(equals(items('For_each_locationID'),5360), 'Las Vegas',\r\n  if(equals(items('For_each_locationID'),5446), 'SFO Airport',\r\n    if(equals(items('For_each_locationID'),8920), 'LA Seaport',\r\n      if(equals(items('For_each_locationID'),5180), 'LAX Airport',\r\n        if(equals(items('For_each_locationID'),16674), 'Ontario','N/A')\r\n      )\r\n    )\r\n  )\r\n)"
+                                }
+                            },
+                            "runAfter": {
+                                "Initialize_variable_arr_freeAppointments": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Foreach"
+                        },
+                        "Initialize_variable_arr_freeAppointments": {
+                            "runAfter": {
+                                "Initialize_variable_arr_globalEntryLocations": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "arr_freeAppointments",
+                                        "type": "array",
+                                        "value": []
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_variable_arr_globalEntryLocations": {
+                            "runAfter": {
+                                "Initialize_variable_str_endDate": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "arr_globalEntryLocations",
+                                        "type": "array",
+                                        "value": [
+                                            5360,
+                                            16674,
+                                            5446,
+                                            8920,
+                                            5180
+                                        ]
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_variable_str_startDate": {
+                            "runAfter": {},
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "str_startDate",
+                                        "type": "string",
+                                        "value": "2024-04-01T00:00:00"
+                                    }
+                                ]
+                            }
+                        },
+                        "Initialize_variable_str_endDate": {
+                            "runAfter": {
+                                "Initialize_variable_str_startDate": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "str_endDate",
+                                        "type": "string",
+                                        "value": "2024-04-09T00:00:00"
+                                    }
+                                ]
+                            }
+                        },
+                        "If_arr_freeAppointments_has_elements": {
+                            "actions": {
+                                "Create_arr_freeAppointments_HTML_table": {
+                                    "type": "Table",
+                                    "inputs": {
+                                        "from": "@variables('arr_freeAppointments')",
+                                        "format": "HTML",
+                                        "columns": [
+                                            {
+                                                "header": "locationID",
+                                                "value": "@{item()['locationID']}"
+                                            },
+                                            {
+                                                "header": "locationName",
+                                                "value": "@{item()['locationName']}"
+                                            },
+                                            {
+                                                "header": "total",
+                                                "value": "@{item()['total']}"
+                                            },
+                                            {
+                                                "header": "timestamp",
+                                                "value": "@{item()['timestamp']}"
+                                            }
+                                        ]
+                                    }
+                                },
+                                "Send_eMail": {
+                                    "runAfter": {
+                                        "Create_arr_freeAppointments_HTML_table": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['office365']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "body": {
+                                            "To": "tk@cloudguard.net",
+                                            "Subject": "Global Entry - Free Interview Appointments",
+                                            "Body": "<p>Hello,</p><br><p>the following Global Entry interview dates are available:</p><p>@{body('Create_arr_freeAppointments_HTML_table')}</p>",
+                                            "Importance": "Normal"
+                                        },
+                                        "path": "/v2/Mail"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "For_each_locationID": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "else": {
+                                "actions": {}
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "greater": [
+                                            "@length(variables('arr_freeAppointments'))",
+                                            0
+                                        ]
+                                    }
+                                ]
+                            },
+                            "type": "If"
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        
+                    }
+                }
+            }
+        }
+    ]
+}
