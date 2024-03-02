@@ -1,8 +1,9 @@
 # GlobalEntryAppointmentChecker
 This little Logic App project will send a list of free Global Entry appointments via Exchange Online as soon as an appointment is available.
 
-![Deploy to Azure](https://aka.ms/deploytoazurebutton)
+![Deploy to Azure](https://aka.ms/deploytoazurebutton)(https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2FTobiKr%2FGlobalEntryAppointmentChecker%2Fmain%2Ftemplate.json)
 
+#### Deployment 
 Steps to deploy:
 1. Create an Azure Subscription
 2. Deploy the Logic App with the button above 
@@ -10,7 +11,7 @@ Steps to deploy:
 4. Edit the variables str_startDate and str_endDate to define the time window for which you would like to receive free appointments
 5. Edit the sendEMail action or do whatever you like with the data
 
-##### Choose your Enrollment Center IDs
+#### Choose your Enrollment Center IDs
 
 | ID    | Enrollment Center                                                                                                                |
 |-------|---------------------------------------------------------------------------------------------------------------------------------------|
